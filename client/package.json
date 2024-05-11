@@ -1,0 +1,28 @@
+{
+  "name": "ClientService",
+  "version": "0.0.0",
+  "description": "Client Service",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node .",
+    "format:write": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [
+    "redux",
+    "event-stream",
+    "bullmq",
+    "redis"
+  ],
+  "author": "Jihed Mastouri",
+  "dependencies": {
+    "bullmq": "^5.7.8",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10",
+    "@types/express": "^5.7.8",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.9.1"
+  }
+}

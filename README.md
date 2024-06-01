@@ -2,4 +2,10 @@
 
 ![diagram](./assets/diag.png)
 
-> For production, it is recommended to use a managed Redis service.
+## Solution 1:
+
+![diagram](./assets/solution-1-seq.png)
+
+## Solution 2:
+
+![diagram](./assets/solution-1-seq.png)

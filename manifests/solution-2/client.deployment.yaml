@@ -1,55 +1,45 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp-deployment
+  name: client-sol2-deployment
+  namespace: sol-2
   labels:
-    app: webapp
+    app: client-sol2
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: webapp
+      app: client-sol2
   template:
     metadata:
       labels:
-        app: webapp
+        app: client-sol2
     spec:
       containers:
-      - name: demo-app
-        image: nanajanashia/k8s-demo-app:v1.0
+      - name: node-ms-sol2
+        image: node-ms-sol2:lastest
+        imagePullPolicy: Never
         ports:
         - containerPort: 3000
         env:
-        - name: DB_URL
+        - name: REDIS_URL
           valueFrom:
             configMapKeyRef:
-              name: mongo-config
-              key: mongo_url
-        - name: USER_NAME
-          valueFrom:
-            secretKeyRef:
-              name: mongo-secret
-              key: mongo-user
-        - name: USER_PWD
-          valueFrom:
-            secretKeyRef:
-              name: mongo-secret
-              key: mongo-password
-
+              name: redis-config
+              key: redis_url
 
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
-  name: webapp-service
+  name: client-sol2-service
 spec:
   type: NodePort
   selector:
-    app: webapp
+    app: client-sol2
   ports:
     - protocol: TCP
       port: 8080
       targetPort: 3000
-      nodePort: 30008
-
+      nodePort: 3000

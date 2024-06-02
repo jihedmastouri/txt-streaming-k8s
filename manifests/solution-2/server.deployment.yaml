@@ -22,15 +22,16 @@ spec:
         ports:
         - containerPort: 3000
         env:
-        - name: REDIS_URL
+        - name: REDIS_HOST
           valueFrom:
             configMapKeyRef:
               name: redis-config-sol2
-              key: REDIS_URL
-        - name: HOST_IP
+              key: REDIS_HOST
+        - name: REDIS_PORT
           valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
+            configMapKeyRef:
+              name: redis-config-sol2
+              key: REDIS_PORT
 
 ---
 

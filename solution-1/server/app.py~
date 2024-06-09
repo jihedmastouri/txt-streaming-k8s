@@ -1,6 +1,3 @@
-from asyncio.queues import Queue
-from collections import defaultdict
-from typing import DefaultDict
 import async_timeout
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -8,6 +5,7 @@ import redis.asyncio as aioredis
 from os import getenv
 import uvicorn
 import asyncio
+from event_source import EventSource
 import json
 from threading import Thread
 
@@ -16,12 +14,9 @@ redis_port = int(getenv("REDIS_PORT", 6379))
 host_addr = getenv("HOST_IP", "localhost")
 
 app = FastAPI()
+es = EventSource()
 
-# Store the streams in a dictionary
-# streams are Queues that will be used for communication between the listener and the stream endpoint
-streams : DefaultDict[str, Queue] = defaultdict()
 
-# Listen to the Redis queue for incoming requests to start processing asynchronously
 async def listener():
     client = aioredis.from_url(f"redis://{redis_host}:{redis_port}")
     while True:
@@ -35,7 +30,7 @@ async def listener():
                 data = req_jsml["data"]
                 id = req_jsml["id"]
 
-                streams[id] = Queue()
+                es.newStream(id)
 
                 await client.publish(
                     "res-sol-1",
@@ -48,43 +43,33 @@ async def listener():
             pass
 
 
-# Simulate An async request processing
 async def proceed_request(id, data: str):
-    await asyncio.sleep(0.5) # Simulate processing time
+    await asyncio.sleep(150)
     print(f"Processing request {id}, data: {data}")
     STATIC_STRING = "Lorem ipsum dolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat. Exercitation laborum, in amet"
     for word in STATIC_STRING.split():
-        await asyncio.sleep(0.05) # Simulate processing time
-        await streams[id].put(word)
-        await streams[id].put(" ")
-    await streams[id].put("<end>")
+        await es.add(id, word)
+    await es.add(id, "<end>")
 
+async def event_generator(id):
+    await asyncio.sleep(50)
+    async for item in es.listen(id):
+        print(f"Sending {item}")
+        yield item
 
 @app.get("/stream/{id}", response_class=StreamingResponse)
 async def read_item(id: str):
     print(f"Requesting stream {id}")
-    async def event_generator():
-        while True:
-            item = await streams[id].get()
-            await asyncio.sleep(0.05) # Simulate processing time
-            yield item
-            if item == "<end>":
-                streams[id].task_done()
-                streams.pop(id)
-                break
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(event_generator(id), media_type="text/plain")
 
-# helper function to start the listener
+
 def start_listener(loop):
     asyncio.set_event_loop(loop)
     loop.run_until_complete(listener())
 
-
 if __name__ == "__main__":
-    # Start listener in a separate thread
     loop = asyncio.new_event_loop()
     listener_thread = Thread(target=start_listener, args=(loop,))
     listener_thread.start()
 
-    # Start FastAPI app
     uvicorn.run(app, host="0.0.0.0", port=8000)

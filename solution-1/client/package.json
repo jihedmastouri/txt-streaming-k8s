@@ -4,7 +4,9 @@
   "description": "Client Service",
   "main": "index.ts",
   "scripts": {
-    "start": "ts-node .",
+    "start": "node dist/index.js",
+    "dev": "ts-node .",
+    "build": "tsc",
     "format:write": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -14,8 +16,8 @@
   ],
   "author": "Jihed Mastouri",
   "dependencies": {
-    "dotenv": "^16.4.5",
     "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "redis": "^4.6.14"
   },

@@ -1,11 +1,15 @@
 import 'dotenv/config';
 import express from 'express';
 import { createClient } from 'redis';
-import { makeid } from 'utils';
+import { makeid } from './utils';
 import { EventEmitter } from 'node:events';
 
-const client = createClient({
-  url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+const clientSub = createClient({
+    url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+});
+
+const clientPush = createClient({
+    url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
 });
 
 const app = express();
@@ -14,49 +18,60 @@ app.use(express.json());
 const eventEmitter = new EventEmitter();
 
 app.post('/', async (req: any, res: any) => {
-  const b = await req.body;
+    const b = await req.body;
 
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('transfer-encoding', 'chunked');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
 
-  const channelId = makeid();
-  client.LPUSH(`new-req`, JSON.stringify(b.data));
+    console.log('pusing to new-req', JSON.stringify(b.data));
 
-  eventEmitter.on(channelId, (data: string) => {
-    if (data === '<end>') {
-      res.end();
-      return;
-    }
-    res.write(data);
-  });
+    const channelId = makeid();
+    clientPush.LPUSH(
+        'req-sol-2',
+        JSON.stringify({ id: channelId, data: b.data })
+    );
+
+    eventEmitter.on(`res-id:${channelId}`, (data: string) => {
+        if (data === '<end>') {
+            res.end();
+            return;
+        }
+        res.write(data);
+    });
 });
 
 async function main() {
-  await client.connect();
+    await clientSub.connect();
+    await clientPush.connect();
 
-  client.ping().then(() => {
-    console.log('Connected to Redis');
-  });
+    clientSub.ping().then(() => {
+        console.log('Connected to Redis for sub');
+    });
 
-  client.subscribe(`res`, (val) => {
-    console.log('Received message:', val);
-    let v;
-    try {
-      v = JSON.parse(val);
-    } catch (e) {
-      console.error('Error parsing message:', e);
-      return;
-    }
-    const { id, data } = v;
-    eventEmitter.emit(id, data);
-  });
+    clientPush.ping().then(() => {
+        console.log('Connected to Redis for push');
+    });
 
-  app.listen(3000, () => {
-    console.log('Server is running on port 3000');
-  });
+    clientSub.subscribe('res-sol-2', (val) => {
+        console.log('Received message:', val);
+        let v;
+        try {
+            v = JSON.parse(val);
+        } catch (e) {
+            console.error('Error parsing message:', e);
+            return;
+        }
+        const { id, data } = v;
+        eventEmitter.emit(`res-id:${id}`, data);
+    });
+
+    app.listen(3001, () => {
+        console.log('Server is running on port 3001');
+    });
 }
 
 main();

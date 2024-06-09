@@ -4,7 +4,9 @@
   "description": "Client Service",
   "main": "index.ts",
   "scripts": {
-    "start": "ts-node .",
+    "start": "node dist/index.js",
+    "dev": "ts-node .",
+    "build": "tsc",
     "format:write": "prettier --write .",
     "format:check": "prettier --check ."
   },

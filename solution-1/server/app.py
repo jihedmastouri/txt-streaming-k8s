@@ -19,14 +19,16 @@ app = FastAPI()
 
 # Store the streams in a dictionary
 # streams are Queues that will be used for communication between the listener and the stream endpoint
-streams : DefaultDict[str, Queue] = defaultdict()
+streams: DefaultDict[str, Queue] = defaultdict()
+lock = asyncio.Semaphore(5) # Limit the number of concurrent requests
+
 
 # Listen to the Redis queue for incoming requests to start processing asynchronously
 async def listener():
     client = aioredis.from_url(f"redis://{redis_host}:{redis_port}")
     while True:
         try:
-            async with async_timeout.timeout(50):
+            async with async_timeout.timeout(2):
                 req = await client.lpop("req-sol-1")
                 if req is None:
                     continue
@@ -50,29 +52,34 @@ async def listener():
 
 # Simulate An async request processing
 async def proceed_request(id, data: str):
-    await asyncio.sleep(0.5) # Simulate processing time
-    print(f"Processing request {id}, data: {data}")
-    STATIC_STRING = "Lorem ipsum dolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat. Exercitation laborum, in amet"
-    for word in STATIC_STRING.split():
-        await asyncio.sleep(0.05) # Simulate processing time
-        await streams[id].put(word)
-        await streams[id].put(" ")
-    await streams[id].put("<end>")
+    # to limit the number of concurrent requests
+    async with lock:
+        await asyncio.sleep(0.5)  # Simulate processing time
+        print(f"Processing request {id}, data: {data}")
+        STATIC_STRING = "Lorem ipsum dolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat. Exercitation laborum, in amet"
+        for word in STATIC_STRING.split():
+            await asyncio.sleep(0.05)  # Simulate processing time
+            await streams[id].put(word)
+            await streams[id].put(" ")
+        await streams[id].put("<end>")
 
 
 @app.get("/stream/{id}", response_class=StreamingResponse)
 async def read_item(id: str):
     print(f"Requesting stream {id}")
+
     async def event_generator():
         while True:
             item = await streams[id].get()
-            await asyncio.sleep(0.05) # Simulate processing time
+            await asyncio.sleep(0.05)  # Simulate processing time
             yield item
             if item == "<end>":
                 streams[id].task_done()
                 streams.pop(id)
                 break
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 
 # helper function to start the listener
 def start_listener(loop):

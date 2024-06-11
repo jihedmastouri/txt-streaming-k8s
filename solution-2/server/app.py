@@ -28,7 +28,7 @@ async def main():
     while True:
         try:
             async with async_timeout.timeout(2):
-                req = await client.lpop("req-sol-2")
+                req = await client.rpop("req-sol-2")
                 if req is None:
                     continue
 

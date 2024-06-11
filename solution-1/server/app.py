@@ -18,7 +18,8 @@ host_addr = getenv("HOST_IP", "localhost")
 app = FastAPI()
 
 # Store the streams in a dictionary
-# streams are Queues that will be used for communication between the listener and the stream endpoint
+# streams are the results that will be streamed to the end user.
+# in porduction probably use some sort of buffer instead of async Queue.
 streams: DefaultDict[str, Queue] = defaultdict()
 lock = asyncio.Semaphore(5) # Limit the number of concurrent requests
 
@@ -29,7 +30,7 @@ async def listener():
     while True:
         try:
             async with async_timeout.timeout(2):
-                req = await client.lpop("req-sol-1")
+                req = await client.rpop("req-sol-1")
                 if req is None:
                     continue
 
